@@ -2,6 +2,7 @@
 #include <afx.h>
 #include <stdlib.h>
 #include <conio.h>
+#include <random>
 
 #include "KinectMangerThread.h"
 #include "ColorBasedTracker.h"
@@ -62,7 +63,7 @@ int main(){
 		//Ã³¸®ºÎ
 		else if(!isSaved && ImgVec.size() != 0 && DepthVec.size() != 0 && PCVec.size() != 0){
 			//TO-DO
-			printf("Sampling & store");
+			printf("Sampling & store\n");
 			char tempIdxBuf[256];
 			sprintf(tempIdxBuf, "%s\\%s\\IdxSet.txt", DEFAULT_PATH, dirName);
 			FILE *fp;
@@ -73,14 +74,35 @@ int main(){
 
 			//store
 			int startIdx = count;
-			for(int i = 0; i < ImgVec.size(); i++)
-				writeData(ImgVec.at(i), DepthVec.at(i), PCVec.at(i), &tracker, dirName, count++, backRGB, backDepth);
+			std::vector<int> indexBox;
+			for(int i = 0; i < ImgVec.size(); i++){
+				bool writeCheck = writeData(ImgVec.at(i), DepthVec.at(i), PCVec.at(i), &tracker, dirName, count, backRGB, backDepth);
+				if(writeCheck){
+					indexBox.push_back(count);
+					count++;
+				}
+			}
 			int endIdx = count - 1;
 			//sampling
+			int firstEND = (indexBox.size() - 1) * 0.2f;
+			int secondEnd = (indexBox.size() - 1) * 0.6f;
+			int ThirdEnd = (indexBox.size() - 1);
+			std::uniform_int_distribution<int>  firstSampler(0, firstEND);
+			std::uniform_int_distribution<int>  seconstSampler(firstEND+1, secondEnd);
+			std::uniform_int_distribution<int>	thirdSampler(secondEnd+1, ThirdEnd);
+			std::random_device                  rand_dev;
+			std::mt19937                        generator(rand_dev());
 			for(int i = 0; i < SAMPLING_COUNT; i++){
+				int firstIdx = indexBox.at(firstSampler(generator));
+				int secondIdx = indexBox.at(seconstSampler(generator));
+				int ThiredIdx = indexBox.at(thirdSampler(generator));
+				int goalIdx = indexBox.at(indexBox.size() - 1);
+				fprintf(fp, "%d %d\n", firstIdx, secondIdx);
+				fprintf(fp, "%d %d\n", secondIdx, ThiredIdx);
+				fprintf(fp, "%d %d\n", ThiredIdx, goalIdx);
 			}
 
-
+			indexBox.clear();
 			fclose(fp);
 			ImgVec.clear();
 			DepthVec.clear();
@@ -97,6 +119,7 @@ int main(){
 		tick = GetTickCount() - tick;
 		sprintf(buf, "%.2f fps", 1000.f/ (float)tick);
 		cv::putText(kinectImg, buf, cv::Point(0,150), cv::FONT_HERSHEY_SIMPLEX, 0.5f, cv::Scalar(0,255,255));
+		if(isSaved)	cv::rectangle(kinectImg, cv::Rect(0,0, 160,160), cv::Scalar(0,0,255), 2);
 		cv::imshow("kinectImg", kinectImg);
 	}
 
