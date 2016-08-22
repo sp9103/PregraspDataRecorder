@@ -32,6 +32,37 @@ int main(){
 	cv::imshow("background", backRGB);
 	cv::waitKey(1);
 
+	//LOOP
+	bool isSaved = false;
+	std::vector<cv::Mat> ImgVec, DepthVec, PCVec;
+	while(1){
+		//橇饭烙 涝仿何
+		cv::Mat kinectImg = kinectManager.getImg();
+		cv::Mat KinectDepth = kinectManager.getDepth();
+		cv::Mat kinectPC = kinectManager.getPointCloud();
+
+		//历厘何
+		if(isSaved){
+			ImgVec.push_back(kinectImg.clone());
+			DepthVec.push_back(KinectDepth.clone());
+			PCVec.push_back(kinectPC.clone());
+		}
+		//贸府何
+		else if(!isSaved && ImgVec.size() != 0 && DepthVec.size() != 0 && PCVec.size() != 0){
+			//TO-DO
+
+			ImgVec.clear();
+			DepthVec.clear();
+			PCVec.clear();
+		}
+
+		char keyInput = cv::waitKey(10);
+		if(keyInput == 'q' || keyInput == 27)	break;
+		else if(keyInput = 's')	isSaved = !isSaved;
+
+		cv::imshow("kinectImg", kinectImg);
+	}
+
 	kinectManager.Deinitialize();
 
 	return 0;
