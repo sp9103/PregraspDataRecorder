@@ -57,7 +57,6 @@ cv::Mat ColorBasedTracker::subBackground(cv::Mat srcColor, cv::Mat srcDepth){
 
 	/*cv::erode(tMat, tMat, cv::Mat(), cv::Point(-1, -1), 4);
 	cv::dilate(tMat, tMat, cv::Mat(), cv::Point(-1, -1), 4);*/
-	cv::dilate(tMat, tMat, cv::Mat(), cv::Point(-1, -1), 2);
 
 	return tMat.clone();
 }
@@ -71,11 +70,11 @@ cv::Mat ColorBasedTracker::calcImage(cv::Mat src, cv::Mat depth){
 	cv::Mat backSub = subBackground(src, depth);
 	cv::Mat YellowMap = DetectColorMap(src, backSub);
 	cv::Mat MapSub = DeleteSub(YellowMap, backSub);
-	_blobLabeling.Labeling(20, MapSub);
+	_blobLabeling.Labeling(80, MapSub);
 
 	//Calculate Object Image
 	std::vector<std::pair<std::vector<cv::Point2i>, cv::Rect>> BOI;		//blob of interest
-	FindNMaxBlob(2, &BOI);
+	FindNMaxBlob(3, &BOI);
 	cv::Mat src2 = drawBlobMap(src, BOI);
 	for(int i = 0; i < BOI.size(); i++)
 		cv::rectangle(src2, BOI.at(i).second, cv::Scalar(0,0,255));
@@ -83,6 +82,10 @@ cv::Mat ColorBasedTracker::calcImage(cv::Mat src, cv::Mat depth){
 	if(HandBox.width > 0)
 		cv::rectangle(src2, HandBox, cv::Scalar(0,255,0), 2);
 	cv::imshow("src2", src2);
+
+	/*if(BOI.size() == 3 && HandBox.x == -1){
+		cv::waitKey(0);
+	}*/
 
 	//compose with background
 	cv::Mat src_compose = src.clone();
@@ -97,9 +100,9 @@ cv::Mat ColorBasedTracker::calcImage(cv::Mat src, cv::Mat depth){
 	duration /= cv::getTickFrequency();									//ms 단위 경과 시간
 	printf("%f ms\n",duration);
 
-	cv::imshow("backSub", backSub);
-	cv::imshow("YellowMap", YellowMap);
-	cv::imshow("MapSub", MapSub);
+	//cv::imshow("backSub", backSub);
+	//cv::imshow("YellowMap", YellowMap);
+	//cv::imshow("MapSub", MapSub);
 	//cv::imshow("src", src);
 	//cv::imshow("back_compoes", src_compose);
 	//cv::waitKey(10);
@@ -107,11 +110,10 @@ cv::Mat ColorBasedTracker::calcImage(cv::Mat src, cv::Mat depth){
 	//backSub.release();
 
 	//이미지 생성부
-	const int extra = 4;
-	HandBox.x -= extra;
-	HandBox.y -= extra;
-	HandBox.width += extra;
-	HandBox.height += extra;
+	HandBox.x -= PEDDING;
+	HandBox.y -= PEDDING;
+	HandBox.width += PEDDING;
+	HandBox.height += PEDDING;
 	int x_prime = HandBox.x + HandBox.width;
 	int y_prime = HandBox.y + HandBox.height;
 
@@ -180,6 +182,7 @@ cv::Mat ColorBasedTracker::DeleteSub(cv::Mat map, cv::Mat src){
 				output.at<uchar>(h,w) = (uchar)255;
 		}
 	}
+	cv::dilate(output, output, cv::Mat(), cv::Point(-1, -1), 1);
 
 	return output;
 }
@@ -232,7 +235,6 @@ cv::Mat ColorBasedTracker::drawBlobMap(cv::Mat src, std::vector<std::pair<std::v
 cv::Rect ColorBasedTracker::FindHandBlob(std::vector<std::pair<std::vector<cv::Point2i>, cv::Rect>> src){
 	cv::Rect outRect = cv::Rect(-1,-1,-1,-1);
 	std::vector<int> nonBoundBlobIdx;
-	int maxIdx, minY = INT_MAX;
 
 	if(src.size() == 0)		return outRect;
 	if(src.size() == 1)		outRect = src.at(0).second;
@@ -246,15 +248,26 @@ cv::Rect ColorBasedTracker::FindHandBlob(std::vector<std::pair<std::vector<cv::P
 			if(blobRect.y <= 0 || blobRect.x <= 0 || (blobRect.x + blobRect.width) >= imgWidth-1 || (blobRect.y + blobRect.height) >= imgHeight-1)	boundaryCount++;
 			else
 				nonBoundBlobIdx.push_back(i);
-			if(minY > blobRect.y){
-				minY = blobRect.y;
-				maxIdx = i;
-			}
+			
 		}
-
-		if(nonBoundBlobIdx.size() == 1)		return src.at(nonBoundBlobIdx.at(0)).second;
-		else
-			return src.at(maxIdx).second;
+		if(nonBoundBlobIdx.size() == 1 && src.size() == 3)	return outRect;
+		else if(nonBoundBlobIdx.size() == 1 && src.size() == 2)		return src.at(nonBoundBlobIdx.at(0)).second;
+		else if(nonBoundBlobIdx.size() == 2){
+			int minX = 99999, minY = 99999, maxX = -99999, maxY = -99999;
+			for(int i = 0; i < 2; i++){
+				cv::Rect tempBlob = src.at(nonBoundBlobIdx.at(i)).second;
+				int outX = tempBlob.x + tempBlob.width;
+				int outY = tempBlob.y + tempBlob.height;
+				if(minX > tempBlob.x) minX = tempBlob.x;
+				if(minY > tempBlob.y) minY = tempBlob.y;
+				if(maxX < outX) maxX = outX;
+				if(maxY < outY) maxY = outY;
+			}
+			outRect.x = minX;
+			outRect.y = minY;
+			outRect.width = maxX - minX;
+			outRect.height = maxY - minY;
+		}
 	}
 
 	return outRect;
