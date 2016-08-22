@@ -11,6 +11,7 @@
 
 void writeDepthData(cv::Mat src, char* path, char* name);
 void CreateRGBDdir(const char* className);
+bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedTracker *cbTracker, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth);
 
 int main(){
 	KinectMangerThread kinectManager;
@@ -41,6 +42,7 @@ int main(){
 
 	//LOOP
 	bool isSaved = false;
+	int count = 0;
 	std::vector<cv::Mat> ImgVec, DepthVec, PCVec;
 	while(1){
 		//프레임 입력부
@@ -63,13 +65,17 @@ int main(){
 			printf("Sampling & store");
 			char tempIdxBuf[256];
 			sprintf(tempIdxBuf, "%s\\%s\\IdxSet.txt", DEFAULT_PATH, dirName);
-			FILE *fp = fopen(tempIdxBuf, "w");
+			FILE *fp;
+			if(count == 0)	fp = fopen(tempIdxBuf, "w");
+			else			fp = fopen(tempIdxBuf, "a");
 			ColorBasedTracker tracker;
 			tracker.InsertBackGround(backRGB, backDepth);
 
 			//store
-			//for(int i = 0; i < ImgVec.size(); i++)
-
+			int startIdx = count;
+			for(int i = 0; i < ImgVec.size(); i++)
+				writeData(ImgVec.at(i), DepthVec.at(i), PCVec.at(i), &tracker, dirName, count++, backRGB, backDepth);
+			int endIdx = count - 1;
 			//sampling
 			for(int i = 0; i < SAMPLING_COUNT; i++){
 			}
@@ -142,7 +148,7 @@ void CreateRGBDdir(const char* className){
 	mkdir_check = CreateDirectory(procDepthDir, NULL);
 }
 
-bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedTracker *cbTracker, int* angle, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth){
+bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedTracker *cbTracker, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth){
 	cv::Mat processImg = cbTracker->calcImage(RGBimg, DEPTHimg);
 	if(processImg.rows == 0)	return false;
 	if(RGBimg.channels() == 4)	cv::cvtColor(RGBimg, RGBimg, CV_BGRA2BGR);
