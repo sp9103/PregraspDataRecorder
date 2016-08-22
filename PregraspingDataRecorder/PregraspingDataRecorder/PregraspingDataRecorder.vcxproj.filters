@@ -13,10 +13,45 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Kinect">
+      <UniqueIdentifier>{fc5204d3-8fcc-4ddc-a5ec-d2dfe96c32c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ColorBasedTracker">
+      <UniqueIdentifier>{8201ec4d-729c-4c13-8c12-58380bbd34a5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="KinectMangerThread.cpp">
+      <Filter>Kinect</Filter>
+    </ClCompile>
+    <ClCompile Include="KinectConnecter.cpp">
+      <Filter>Kinect</Filter>
+    </ClCompile>
+    <ClCompile Include="ColorBasedTracker.cpp">
+      <Filter>ColorBasedTracker</Filter>
+    </ClCompile>
+    <ClCompile Include="BlobLabeling.cpp">
+      <Filter>ColorBasedTracker</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="KinectMangerThread.h">
+      <Filter>Kinect</Filter>
+    </ClInclude>
+    <ClInclude Include="KinectConnecter.h">
+      <Filter>Kinect</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ColorBasedTracker.h">
+      <Filter>ColorBasedTracker</Filter>
+    </ClInclude>
+    <ClInclude Include="BlobLabeling.h">
+      <Filter>ColorBasedTracker</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
