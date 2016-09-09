@@ -8,11 +8,12 @@
 #include "ColorBasedTracker.h"
 
 #define DEFAULT_PATH "data"
-#define SAMPLING_COUNT 30
+#define SAMPLING_COUNT 80
 
 void writeDepthData(cv::Mat src, char* path, char* name);
 void CreateRGBDdir(const char* className);
-bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedTracker *cbTracker, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth);
+bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth);
+
 
 int main(){
 	KinectMangerThread kinectManager;
@@ -26,7 +27,7 @@ int main(){
 	scanf("%s", dirName);
 	CreateRGBDdir(dirName);
 
-	printf("press any key if window created.\n");
+	printf("press any key if window created & save backGround.\n");
 	getch();
 	cv::Mat backRGB = kinectManager.getImg();
 	cv::Mat backDepth = kinectManager.getDepth();
@@ -44,7 +45,10 @@ int main(){
 	//LOOP
 	bool isSaved = false;
 	int count = 0;
-	std::vector<cv::Mat> ImgVec, DepthVec, PCVec;
+	std::vector<cv::Mat> ImgVec, DepthVec, PCVec/*, ProcVec*/;
+	ColorBasedTracker tracker;
+	tracker.InsertBackGround(backRGB, backDepth);
+	//std::vector<std::vector<cv::Rect>> blobVec;
 	while(1){
 		//橇饭烙 涝仿何
 		int tick = GetTickCount();
@@ -54,11 +58,23 @@ int main(){
 
 		//历厘何
 		if(isSaved){
+			//std::vector<cv::Rect> tempVec;
+			/*armSub = tracker.DeleteArm(kinectImg, KinectDepth);
+			if(armSub.rows > 0){
+				procImg = tracker.calcBlobAll(armSub, KinectDepth, &tempVec);
+			}
+			else
+				continue;
+
+			if(armSub.rows <= 0 || procImg.rows <= 0)
+				continue;*/
+			printf("saved [%d]\n", ImgVec.size());
 			ImgVec.push_back(kinectImg.clone());
 			DepthVec.push_back(KinectDepth.clone());
 			PCVec.push_back(kinectPC.clone());
-			printf("saved [%d]\n", ImgVec.size());
-			Sleep(10);
+			//ProcVec.push_back(procImg.clone());
+			//blobVec.push_back(tempVec);
+			//cv::imshow("procImg", procImg);
 		}
 		//贸府何
 		else if(!isSaved && ImgVec.size() != 0 && DepthVec.size() != 0 && PCVec.size() != 0){
@@ -69,14 +85,12 @@ int main(){
 			FILE *fp;
 			if(count == 0)	fp = fopen(tempIdxBuf, "w");
 			else			fp = fopen(tempIdxBuf, "a");
-			ColorBasedTracker tracker;
-			tracker.InsertBackGround(backRGB, backDepth);
 
 			//store
 			int startIdx = count;
 			std::vector<int> indexBox;
 			for(int i = 0; i < ImgVec.size(); i++){
-				bool writeCheck = writeData(ImgVec.at(i), DepthVec.at(i), PCVec.at(i), &tracker, dirName, count, backRGB, backDepth);
+				bool writeCheck = writeData(ImgVec.at(i), DepthVec.at(i), PCVec.at(i), dirName, count, backRGB, backDepth);
 				if(writeCheck){
 					indexBox.push_back(count);
 					count++;
@@ -85,7 +99,7 @@ int main(){
 			int endIdx = count - 1;
 			//sampling
 			int firstEND = (indexBox.size() - 1) * 0.2f;
-			int secondEnd = (indexBox.size() - 1) * 0.6f;
+			int secondEnd = (indexBox.size() - 1) * 0.4f;
 			int ThirdEnd = (indexBox.size() - 1);
 			std::uniform_int_distribution<int>  firstSampler(0, firstEND);
 			std::uniform_int_distribution<int>  seconstSampler(firstEND+1, secondEnd);
@@ -107,6 +121,8 @@ int main(){
 			ImgVec.clear();
 			DepthVec.clear();
 			PCVec.clear();
+			//blobVec.clear();
+			//ProcVec.clear();
 
 			printf("==================process complete!=============================\n");
 		}
@@ -118,9 +134,11 @@ int main(){
 		char buf[256];
 		tick = GetTickCount() - tick;
 		sprintf(buf, "%.2f fps", 1000.f/ (float)tick);
-		cv::putText(kinectImg, buf, cv::Point(0,150), cv::FONT_HERSHEY_SIMPLEX, 0.5f, cv::Scalar(0,255,255));
-		if(isSaved)	cv::rectangle(kinectImg, cv::Rect(0,0, 160,160), cv::Scalar(0,0,255), 2);
-		cv::imshow("kinectImg", kinectImg);
+		cv::Mat tempImg = kinectImg.clone();
+		cv::putText(tempImg, buf, cv::Point(0,150), cv::FONT_HERSHEY_SIMPLEX, 0.5f, cv::Scalar(0,255,255));
+		if(isSaved)	cv::rectangle(tempImg, cv::Rect(0,0, 160,160), cv::Scalar(0,0,255), 2);
+		cv::imshow("kinectImg", tempImg);
+		tempImg.release();
 	}
 
 	kinectManager.Deinitialize();
@@ -171,9 +189,7 @@ void CreateRGBDdir(const char* className){
 	mkdir_check = CreateDirectory(procDepthDir, NULL);
 }
 
-bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedTracker *cbTracker, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth){
-	cv::Mat processImg = cbTracker->calcImage(RGBimg, DEPTHimg);
-	if(processImg.rows == 0)	return false;
+bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, char* path, const int count, cv::Mat backRGB, cv::Mat backDepth){
 	if(RGBimg.channels() == 4)	cv::cvtColor(RGBimg, RGBimg, CV_BGRA2BGR);
 	if(backRGB.channels() == 4)	cv::cvtColor(backRGB, backRGB, CV_BGRA2BGR);
 
@@ -187,11 +203,6 @@ bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedT
 	//store Depth
 	sprintf(buf, "%s\\DEPTHMAP", pathBuf);
 	writeDepthData(DEPTHimg, buf, id);
-	//store Process Img
-	sprintf(buf, "%s\\PROCESSIMG\\%d.bmp", pathBuf, count);
-	cv::imwrite(buf, processImg);
-	cv::imshow("Process Img", processImg);
-	cv::waitKey(1);
 	//store point cloud
 	sprintf(buf, "%s\\XYZMAP\\%d.bin", pathBuf, count);
 	FILE *fp = fopen(buf, "wb");
@@ -203,42 +214,6 @@ bool writeData(cv::Mat RGBimg, cv::Mat DEPTHimg, cv::Mat pointCloud, ColorBasedT
 		for(int c = 0; c < pointCloud.channels(); c++)
 			fwrite(&pointCloud.at<cv::Vec3f>(i)[c], sizeof(float), 1, fp);
 	fclose(fp);
-
-	//store ProcDepth
-	//Depth process
-	cv::Point2i leftUpper = cv::Point2i(9999, 9999);
-	cv::Point2i rightBot = cv::Point2i(-1, -1);
-	for(int h = 0; h < backRGB.rows; h++){
-		for(int w = 0; w < backRGB.cols; w++){
-			cv::Vec3b subVal;
-			for(int c = 0; c < backRGB.channels(); c++){
-				subVal[c] = abs(backRGB.at<cv::Vec3b>(h,w)[c] - processImg.at<cv::Vec3b>(h,w)[c]);
-			}
-
-			if(subVal[0] != 0 && subVal[1] != 0 && subVal[2] != 0){
-				if(h < leftUpper.y)		leftUpper.y = h;
-				if(h > rightBot.y)		rightBot.y = h;
-				if(w < leftUpper.x)		leftUpper.x = w;
-				if(w > rightBot.x)		rightBot.x = w;
-			}
-		}
-	}
-	cv::Mat ProcDepthMap(DEPTHimg.rows, DEPTHimg.cols, DEPTHimg.type());
-	float max = -1, min = 999999;
-	ProcDepthMap = backDepth.clone();
-	for(int h = 0; h < DEPTHimg.rows; h++){
-		for(int w = 0; w < DEPTHimg.cols; w++){
-			if(leftUpper.y-PEDDING <= h && h <= rightBot.y+PEDDING){
-				if(leftUpper.x-PEDDING <= w && w <= rightBot.x+PEDDING){
-					ProcDepthMap.at<float>(h,w) = DEPTHimg.at<float>(h,w);
-				}
-			}
-			if(max < ProcDepthMap.at<float>(h,w))	max  = ProcDepthMap.at<float>(h,w);
-			if(min > ProcDepthMap.at<float>(h,w))	min = ProcDepthMap.at<float>(h,w);
-		}
-	}
-	sprintf(buf, "%s\\PROCDEPTH", pathBuf);
-	writeDepthData(ProcDepthMap, buf, id);
 
 	return true;
 }

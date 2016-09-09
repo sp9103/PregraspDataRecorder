@@ -84,7 +84,7 @@ cv::Mat ColorBasedTracker::calcImage(cv::Mat src, cv::Mat depth){
 	cv::imshow("src2", src2);
 
 	/*if(BOI.size() == 3 && HandBox.x == -1){
-		cv::waitKey(0);
+	cv::waitKey(0);
 	}*/
 
 	//compose with background
@@ -150,7 +150,7 @@ cv::Mat ColorBasedTracker::DetectColorMap(cv::Mat rgb, cv::Mat subMap){
 			uchar subMapPixel = subMap.at<uchar>(h,w);
 
 			if(subMapPixel > 0){
-				if(30 > H || H > 120/* && V > 50*/){
+				if(10 > H || H > 170/* && V > 50*/){
 					output.at<uchar>(h,w) = (uchar)255;
 				}else
 					output.at<uchar>(h,w) = (uchar)0;
@@ -248,7 +248,7 @@ cv::Rect ColorBasedTracker::FindHandBlob(std::vector<std::pair<std::vector<cv::P
 			if(blobRect.y <= 0 || blobRect.x <= 0 || (blobRect.x + blobRect.width) >= imgWidth-1 || (blobRect.y + blobRect.height) >= imgHeight-1)	boundaryCount++;
 			else
 				nonBoundBlobIdx.push_back(i);
-			
+
 		}
 		if(nonBoundBlobIdx.size() == 1 && src.size() == 3)	return outRect;
 		else if(nonBoundBlobIdx.size() == 1 && src.size() == 2)		return src.at(nonBoundBlobIdx.at(0)).second;
@@ -271,4 +271,85 @@ cv::Rect ColorBasedTracker::FindHandBlob(std::vector<std::pair<std::vector<cv::P
 	}
 
 	return outRect;
+}
+
+cv::Mat ColorBasedTracker::DeleteArm(cv::Mat src, cv::Mat depth){
+	if(src.channels() == 4)	cv::cvtColor(src, src, CV_BGRA2BGR);
+	cv::Mat output;
+	cv::Mat backSub = subBackground(src, depth);
+	cv::Mat YellowMap = DetectColorMap(src, backSub);
+	cv::Mat MapSub = DeleteSub(YellowMap, backSub);
+	_blobLabeling.Labeling(80, MapSub);
+
+	//cv::imshow("backSub", backSub);
+	//cv::imshow("MapSub", MapSub);
+
+	//Calculate Object Image
+	std::vector<std::pair<std::vector<cv::Point2i>, cv::Rect>> BOI;		//blob of interest
+	FindNMaxBlob(4, &BOI);
+	cv::Mat src2 = drawBlobMap(src, BOI);
+	cv::imshow("src2", src2);
+	for(int i = 0; i < BOI.size(); i++)
+		cv::rectangle(src2, BOI.at(i).second, cv::Scalar(0,0,255));
+	//delete arm blob
+	int boundingCount = 0;
+	std::vector<cv::Rect> armRect;
+	for(int i = 0; i < BOI.size(); i++){
+		cv::Rect blobRect = BOI.at(i).second;
+		blobRect.x -= PEDDING;
+		blobRect.y -= PEDDING;
+		blobRect.width += PEDDING;
+		blobRect.height += PEDDING;
+		if(blobRect.y <= 0 || blobRect.x <= 0 || (blobRect.x + blobRect.width) >= imgWidth-1 || (blobRect.y + blobRect.height) >= imgHeight-1){
+			boundingCount++;
+			armRect.push_back(blobRect);
+		}
+	}
+
+	//fail
+	if(boundingCount > 1)	return output;
+	if(boundingCount == 1){
+		output = src.clone();
+		cv::Rect tempArmBlob = armRect.at(0);
+		int h_start = tempArmBlob.y < 0 ? 0 : tempArmBlob.y;
+		int w_start = tempArmBlob.x < 0 ? 0 : tempArmBlob.x;
+		int h_end = tempArmBlob.height + tempArmBlob.y >= src.rows ? src.rows : tempArmBlob.height + tempArmBlob.y;
+		int w_end = tempArmBlob.width + tempArmBlob.x >= src.cols ? src.cols : tempArmBlob.width + tempArmBlob.x;
+		for(int h = h_start; h < tempArmBlob.height + tempArmBlob.y; h++){
+			for(int w = w_start; w < tempArmBlob.width + tempArmBlob.x; w++){
+				output.at<cv::Vec3b>(h,w) = ColorBackGround.at<cv::Vec3b>(h,w);
+			}
+		}
+	}
+
+	return output;
+}
+
+cv::Mat ColorBasedTracker::calcBlobAll(cv::Mat src, cv::Mat depth, std::vector<cv::Rect> *blobVec){
+	if(src.channels() == 4)	cv::cvtColor(src, src, CV_BGRA2BGR);
+	cv::Mat output;
+	cv::Mat backSub = subBackground(src, depth);
+	cv::Mat YellowMap = DetectColorMap(src, backSub);
+	cv::Mat MapSub = DeleteSub(YellowMap, backSub);
+	_blobLabeling.Labeling(80, MapSub);
+
+	output = ColorBackGround.clone();
+	std::vector<std::pair<std::vector<cv::Point2i>, cv::Rect>> BOI;		//blob of interest
+	FindNMaxBlob(4, &BOI);
+	for(int i = 0; i < BOI.size(); i++){
+		cv::Rect tempBlob = BOI.at(i).second;
+		blobVec->push_back(tempBlob);
+
+		int h_start = tempBlob.y < 0 ? 0 : tempBlob.y;
+		int w_start = tempBlob.x < 0 ? 0 : tempBlob.x;
+		int h_end = tempBlob.height + tempBlob.y >= src.rows ? src.rows : tempBlob.height + tempBlob.y;
+		int w_end = tempBlob.width + tempBlob.x >= src.cols ? src.cols : tempBlob.width + tempBlob.x;
+		for(int h = h_start; h < h_end; h++){
+			for(int w = w_start; w < w_end; w++){
+				output.at<cv::Vec3b>(h,w) = src.at<cv::Vec3b>(h,w);
+			}
+		}
+	}
+
+	return output;
 }

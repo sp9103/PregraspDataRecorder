@@ -15,6 +15,8 @@ public:
 	void InsertBackGround(cv::Mat Color, cv::Mat Depth);
 
 	cv::Mat calcImage(cv::Mat src, cv::Mat depth);
+	cv::Mat DeleteArm(cv::Mat src, cv::Mat depth);
+	cv::Mat calcBlobAll(cv::Mat src, cv::Mat depth, std::vector<cv::Rect> *blobVec);
 
 private:
 	int imgWidth;
